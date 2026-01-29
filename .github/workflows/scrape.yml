@@ -21,24 +21,25 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Run scraper (safe mode)
+    - name: Run scraper
       env:
         NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         TWITTER_BEARER: ${{ secrets.TWITTER_BEARER }}
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
+        mkdir -p data maps charts
         cd scripts
-        python main.py scrape
+        PYTHONPATH=.. python main.py scrape
     
-    - name: Commit data (if exists)
+    - name: Commit data
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add data/ || true
-        if git diff --staged --quiet; then
-          echo "No data changes"
+        if [ -n "$(git status --porcelain)" ]; then
+          git commit -m "Update scraped data [skip ci]"
+          git push
         else
-          git commit -m "Update scraped data [skip ci]" || true
-          git push || true
+          echo "No changes to commit"
         fi
