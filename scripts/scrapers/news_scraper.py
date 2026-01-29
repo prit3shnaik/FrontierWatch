@@ -32,25 +32,27 @@ class NewsScraper:
             return []
     
     def filter_relevant(self, articles):
-        """Filter articles by region relevance"""
-        jk_keywords = ['Jammu', 'Kashmir', 'J&K', 'Srinagar']
-        ne_keywords = ['Manipur', 'Nagaland', 'Assam', 'Mizoram', 'Tripura', 'Meghalaya', 'Arunachal']
+    """Filter articles by region relevance"""
+    jk_keywords = ['Jammu', 'Kashmir', 'J&K', 'Srinagar']
+    ne_keywords = ['Manipur', 'Nagaland', 'Assam', 'Mizoram', 'Tripura', 'Meghalaya', 'Arunachal']
+    
+    relevant = []
+    for article in articles:
+        # ✅ SAFE: Handle missing fields
+        title = article.get('title', '')
+        description = article.get('description', '') or ''
+        content = (title + ' ' + description).lower()
         
-        relevant = []
-        for article in articles:
-            title = article.get('title', '').lower()
-            content = article.get('description', '').lower()
-            
-            if any(kw in title or kw in content for kw in jk_keywords + ne_keywords):
-                relevant.append({
-                    'title': article['title'],
-                    'description': article['description'],
-                    'url': article['url'],
-                    'published': article['publishedAt'],
-                    'source': article['source']['name'],
-                    'region': self._classify_region(title + ' ' + content)
-                })
-        return relevant
+        if any(kw.lower() in content for kw in jk_keywords + ne_keywords):
+            relevant.append({
+                'title': title,
+                'description': description,
+                'url': article.get('url', ''),
+                'published': article.get('publishedAt', ''),
+                'source': article.get('source', {}).get('name', 'Unknown'),
+                'region': self._classify_region(content)
+            })
+    return relevant
     
     def _classify_region(self, text):
         """Simple region classification"""
