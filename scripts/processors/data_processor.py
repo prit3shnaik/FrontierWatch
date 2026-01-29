@@ -5,7 +5,7 @@ import yaml
 from pathlib import Path
 
 def deduplicate_data(all_incidents):
-    """Deduplicate incidents - ULTRA SAFE version"""
+    """Deduplicate incidents - PRODUCTION READY"""
     if not all_incidents:
         return pd.DataFrame()
     
@@ -15,17 +15,18 @@ def deduplicate_data(all_incidents):
     
     print(f"📋 Processing {len(df)} incidents with columns: {list(df.columns)}")
     
-    # ✅ ULTRA-SAFE: Create ALL columns with defaults FIRST
+    # Create ALL columns with defaults
     for col in ['title', 'description', 'text', 'summary', 'published', 'source']:
         if col not in df.columns:
             df[col] = ''
     
-    # ✅ ULTRA-SAFE: Build content ROW-BY-ROW (no Series joining)
+    # Build content ROW-BY-ROW
     def get_content(row):
         content = []
         for col in ['title', 'description', 'text', 'summary']:
-            if col in row and pd.notna(row[col]):
-                content.append(str(row[col]))
+            val = row.get(col, '')
+            if pd.notna(val) and val:
+                content.append(str(val))
         return ' '.join(content)
     
     df['content'] = df.apply(get_content, axis=1)
@@ -33,10 +34,10 @@ def deduplicate_data(all_incidents):
         lambda x: hashlib.md5(str(x).encode()).hexdigest()
     )
     
-    # Sort by date if available
+    # FIXED: Use na_position instead of na_last
     if 'published' in df.columns:
         df['published'] = pd.to_datetime(df['published'], errors='coerce')
-        df = df.sort_values('published', ascending=False, na_last=True)
+        df = df.sort_values('published', ascending=False, na_position='last')
     
     before_count = len(df)
     df_unique = df.drop_duplicates(subset=['content_hash'], keep='first')
@@ -55,13 +56,13 @@ def classify_incidents(df, config):
     def get_full_text(row):
         text = []
         for col in ['title', 'description', 'text', 'summary']:
-            if col in row and pd.notna(row[col]):
-                text.append(str(row[col]))
+            val = row.get(col, '')
+            if pd.notna(val) and val:
+                text.append(str(val))
         return ' '.join(text).lower()
     
     df['full_text'] = df.apply(get_full_text, axis=1)
     
-    # Safe keyword access
     keywords = config.get('keywords', {})
     terror_kws = keywords.get('terror', [])
     encounter_kws = keywords.get('encounter', [])
@@ -69,7 +70,6 @@ def classify_incidents(df, config):
     
     for idx, row in df.iterrows():
         text = row['full_text']
-        
         if any(kw in text for kw in terror_kws):
             df.at[idx, 'incident_type'] = 'Terror'
         elif any(kw in text for kw in encounter_kws):
