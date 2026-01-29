@@ -1,0 +1,44 @@
+name: FrontierWatch - Daily Report
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 8 AM IST = 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Download spaCy model
+      run: python -m spacy download en_core_web_sm
+    
+    - name: Generate report
+      env:
+        NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        TWITTER_BEARER: ${{ secrets.TWITTER_BEARER }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        mkdir -p data maps charts
+        python scripts/main.py
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontierwatch-report
+        path: |
+          maps/*.html
+          charts/*.html
+          data/*.csv
