@@ -1,0 +1,15 @@
+requests==2.31.0
+beautifulsoup4==4.12.2
+feedparser==6.0.10
+pandas==2.1.4
+python-telegram-bot==21.4
+folium==0.15.1
+matplotlib==3.8.2
+geopy==2.4.1
+tweepy==4.14.0
+spacy==3.7.5
+plotly==5.20.0
+pyyaml==6.0.1
+python-dateutil==2.8.2
+geopandas==0.14.0
+contextily==1.6.0
