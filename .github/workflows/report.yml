@@ -2,7 +2,7 @@ name: FrontierWatch - Daily Report
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 8 AM IST = 2 AM UTC
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -21,9 +21,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Download spaCy model
-      run: python -m spacy download en_core_web_sm
-    
     - name: Generate report
       env:
         NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
@@ -31,14 +28,15 @@ jobs:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        mkdir -p data maps charts
-        python scripts/main.py
+        cd scripts
+        python main.py
     
     - name: Upload artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: frontierwatch-report
+        name: frontierwatch-report-${{ github.run_id }}
         path: |
-          maps/*.html
-          charts/*.html
-          data/*.csv
+          data/
+          maps/
+          charts/
