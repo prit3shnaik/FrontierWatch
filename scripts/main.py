@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 import os
+import sys
 import yaml
 from datetime import datetime
 import pandas as pd
 
+# FIX: Add current directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # Import all modules
-from scripts.scrapers.news_scraper import NewsScraper
-from scripts.scrapers.rss_scraper import RSSScraper
-from scripts.scrapers.twitter_scraper import TwitterScraper
-from scripts.processors.data_processor import deduplicate_data, classify_incidents
-from scripts.processors.geocoder import FrontierGeocoder
-from scripts.analyzers.geo_analyzer import GeoAnalyzer
-from scripts.notifiers.telegram_notifier import TelegramNotifier
+from scrapers.news_scraper import NewsScraper
+from scrapers.rss_scraper import RSSScraper
+from scrapers.twitter_scraper import TwitterScraper
+from processors.data_processor import deduplicate_data, classify_incidents
+from processors.geocoder import FrontierGeocoder
+from analyzers.geo_analyzer import GeoAnalyzer
+from notifiers.telegram_notifier import TelegramNotifier
 
 def load_config():
     """Load configuration with secret substitution"""
@@ -19,10 +23,10 @@ def load_config():
         config = yaml.safe_load(f)
     
     # Replace GitHub secrets
-    config['newsapi_key'] = os.getenv('NEWSAPI_KEY')
-    config['twitter_bearer'] = os.getenv('TWITTER_BEARER')
-    config['telegram_token'] = os.getenv('TELEGRAM_TOKEN')
-    config['telegram_chat_id'] = os.getenv('TELEGRAM_CHAT_ID')
+    config['newsapi_key'] = os.getenv('NEWSAPI_KEY', '')
+    config['twitter_bearer'] = os.getenv('TWITTER_BEARER', '')
+    config['telegram_token'] = os.getenv('TELEGRAM_TOKEN', '')
+    config['telegram_chat_id'] = os.getenv('TELEGRAM_CHAT_ID', '')
     
     return config
 
@@ -32,14 +36,17 @@ def collect_data(config):
     
     # NewsAPI
     print("📰 Scraping NewsAPI...")
-    news = NewsScraper(config['newsapi_key'])
-    news_articles = news.search_incidents()
-    relevant_news = news.filter_relevant(news_articles)
-    for article in relevant_news:
-        article['source'] = 'NewsAPI'
-        all_incidents.append(article)
+    if config['newsapi_key']:
+        news = NewsScraper(config['newsapi_key'])
+        news_articles = news.search_incidents()
+        relevant_news = news.filter_relevant(news_articles)
+        for article in relevant_news:
+            article['source'] = 'NewsAPI'
+            all_incidents.append(article)
+    else:
+        print("⚠️  No NewsAPI key - skipping")
     
-    # RSS
+    # RSS (no API key needed)
     print("📰 Scraping RSS feeds...")
     rss = RSSScraper()
     rss_incidents = rss.scrape_feeds()
@@ -47,12 +54,16 @@ def collect_data(config):
     
     # Twitter
     print("🐦 Scraping Twitter...")
-    twitter = TwitterScraper(config['twitter_bearer'])
-    tweets = twitter.search_tweets()
-    for tweet in tweets:
-        tweet['source'] = 'Twitter'
-        all_incidents.append(tweet)
+    if config['twitter_bearer']:
+        twitter = TwitterScraper(config['twitter_bearer'])
+        tweets = twitter.search_tweets()
+        for tweet in tweets:
+            tweet['source'] = 'Twitter'
+            all_incidents.append(tweet)
+    else:
+        print("⚠️  No Twitter Bearer - skipping")
     
+    print(f"✅ Collected {len(all_incidents)} total incidents")
     return pd.DataFrame(all_incidents)
 
 def process_and_analyze(df, config):
@@ -61,16 +72,24 @@ def process_and_analyze(df, config):
     os.makedirs('maps', exist_ok=True)
     os.makedirs('charts', exist_ok=True)
     
+    if df.empty:
+        print("⚠️  No incidents to process")
+        return df, None, {}
+    
     # Process
     print("🔄 Processing data...")
-    df['published'] = pd.to_datetime(df['published'])
+    df['published'] = pd.to_datetime(df['published'], errors='coerce')
     df_processed = deduplicate_data(df.to_dict('records'))
-    df_processed = classify_incidents(pd.DataFrame(df_processed), config)
+    df_processed = pd.DataFrame(df_processed)
     
-    # Geocode
-    print("📍 Geocoding...")
+    if not df_processed.empty:
+        df_processed = classify_incidents(df_processed, config)
+    
+    # Geocode (limit to avoid timeouts)
+    print("📍 Geocoding (first 20 incidents)...")
     geocoder = FrontierGeocoder()
-    df_geocoded = geocoder.geocode_incidents(df_processed)
+    df_sample = df_processed.head(20).copy()
+    df_geocoded = geocoder.geocode_incidents(df_sample)
     df_geocoded.to_csv('data/incidents.csv', index=False)
     
     # Analyze
@@ -83,6 +102,10 @@ def process_and_analyze(df, config):
 
 def send_report(notifier, count, map_path, charts):
     """Send Telegram report"""
+    if not notifier.telegram_token or not notifier.telegram_chat_id:
+        print("⚠️  No Telegram config - skipping notifications")
+        return
+    
     print("📤 Sending report...")
     notifier.send_daily_report(count, map_path, charts)
 
@@ -91,10 +114,12 @@ def main(mode='full'):
     print(f"🚀 FrontierWatch starting... ({mode} mode)")
     
     config = load_config()
+    print(f"✅ Config loaded: {len([k for k,v in config.items() if v])} keys")
     
     if mode == 'scrape':
         df = collect_data(config)
-        df.to_csv('data/raw_scrape.csv', index=False)
+        if not df.empty:
+            df.to_csv('data/raw_scrape.csv', index=False)
         print(f"✅ Scraped {len(df)} incidents")
         return
     
