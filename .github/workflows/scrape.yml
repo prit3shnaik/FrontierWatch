@@ -2,8 +2,8 @@ name: FrontierWatch - Data Collection
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
-  workflow_dispatch:  # Manual trigger
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -21,23 +21,24 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Download spaCy model
-      run: python -m spacy download en_core_web_sm
-    
-    - name: Run scraper
+    - name: Run scraper (safe mode)
       env:
         NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         TWITTER_BEARER: ${{ secrets.TWITTER_BEARER }}
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        mkdir -p data maps charts
-        python scripts/main.py scrape
+        cd scripts
+        python main.py scrape
     
-    - name: Commit data
+    - name: Commit data (if exists)
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add data/
-        git diff --staged --quiet || git commit -m "Update scraped data [skip ci]"
-        git push
+        git add data/ || true
+        if git diff --staged --quiet; then
+          echo "No data changes"
+        else
+          git commit -m "Update scraped data [skip ci]" || true
+          git push || true
+        fi
