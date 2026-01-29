@@ -1,0 +1,30 @@
+# FrontierWatch Configuration
+regions:
+  jammu_kashmir:
+    keywords: ["Jammu", "Kashmir", "J&K", "Srinagar", "Jammu city"]
+    bbox: [73.5, 32.2, 80.0, 36.8]
+  
+  northeast:
+    manipur: ["Manipur", "Imphal"]
+    nagaland: ["Nagaland", "Kohima"]
+    assam: ["Assam", "Guwahati"]
+    mizoram: ["Mizoram", "Aizawl"]
+    tripura: ["Tripura", "Agartala"]
+    meghalaya: ["Meghalaya", "Shillong"]
+    arunachal: ["Arunachal Pradesh", "Itanagar"]
+    bbox: [88.1, 22.0, 99.0, 30.0]
+
+keywords:
+  terror: ["terror", "terrorist", "terrorism", "militant", "militants"]
+  encounter: ["encounter", "gunfight", "gun battle", "firing"]
+  attack: ["attack", "ambush", "blast", "explosion", "IED", "bomb"]
+  infiltration: ["infiltration", "ceasefire violation", "LoC violation"]
+
+newsapi_key: "${{ secrets.NEWSAPI_KEY }}"
+twitter_bearer: "${{ secrets.TWITTER_BEARER }}"
+telegram_token: "${{ secrets.TELEGRAM_TOKEN }}"
+telegram_chat_id: "${{ secrets.TELEGRAM_CHAT_ID }}"
+
+schedules:
+  scrape_interval: "0 */6 * * *"  # Every 6 hours
+  daily_report: "0 2 * * *"       # 8 AM IST (2 AM UTC)
