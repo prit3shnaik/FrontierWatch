@@ -5,8 +5,8 @@ import yaml
 from datetime import datetime
 import pandas as pd
 
-# FIX: Add current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# FIX: Add parent directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import all modules
 from scrapers.news_scraper import NewsScraper
@@ -19,7 +19,9 @@ from notifiers.telegram_notifier import TelegramNotifier
 
 def load_config():
     """Load configuration with secret substitution"""
-    with open('config.yaml', 'r') as f:
+    import os
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+    with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     
     # Replace GitHub secrets
