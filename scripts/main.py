@@ -104,11 +104,11 @@ def process_and_analyze(df, config):
 
 def send_report(notifier, count, map_path, charts):
     """Send Telegram report"""
-    if not notifier.telegram_token or not notifier.telegram_chat_id:
-        print("⚠️  No Telegram config - skipping notifications")
-        return
-    
     print("📤 Sending report...")
+    if not notifier.bot_token or not notifier.chat_id:
+        print("⚠️ No Telegram credentials - skipping notifications")
+        print(f"Incidents processed: {count}")
+        return
     notifier.send_daily_report(count, map_path, charts)
 
 def main(mode='full'):
