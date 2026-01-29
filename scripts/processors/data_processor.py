@@ -2,9 +2,10 @@ import pandas as pd
 import hashlib
 import os
 import yaml
+from pathlib import Path
 
 def deduplicate_data(all_incidents):
-    """Deduplicate incidents - BULLETPROOF column handling"""
+    """Deduplicate incidents - ULTRA SAFE version"""
     if not all_incidents:
         return pd.DataFrame()
     
@@ -12,30 +13,34 @@ def deduplicate_data(all_incidents):
     if df.empty:
         return df
     
-    # ✅ BULLETPROOF: Create ALL possible columns with empty strings
-    required_cols = ['title', 'description', 'text', 'summary', 'published']
-    for col in required_cols:
+    print(f"📋 Processing {len(df)} incidents with columns: {list(df.columns)}")
+    
+    # ✅ ULTRA-SAFE: Create ALL columns with defaults FIRST
+    for col in ['title', 'description', 'text', 'summary', 'published', 'source']:
         if col not in df.columns:
             df[col] = ''
     
-    # ✅ SAFE: Build content from ANY available fields
-    content_parts = []
-    for col in ['title', 'description', 'text', 'summary']:
-        if col in df.columns:
-            content_parts.append(df[col].astype(str))
+    # ✅ ULTRA-SAFE: Build content ROW-BY-ROW (no Series joining)
+    def get_content(row):
+        content = []
+        for col in ['title', 'description', 'text', 'summary']:
+            if col in row and pd.notna(row[col]):
+                content.append(str(row[col]))
+        return ' '.join(content)
     
-    df['content'] = ' '.join(content_parts)
+    df['content'] = df.apply(get_content, axis=1)
     df['content_hash'] = df['content'].apply(
-        lambda x: hashlib.md5(x.encode()).hexdigest()
+        lambda x: hashlib.md5(str(x).encode()).hexdigest()
     )
     
     # Sort by date if available
     if 'published' in df.columns:
         df['published'] = pd.to_datetime(df['published'], errors='coerce')
-        df = df.sort_values('published', ascending=False)
+        df = df.sort_values('published', ascending=False, na_last=True)
     
+    before_count = len(df)
     df_unique = df.drop_duplicates(subset=['content_hash'], keep='first')
-    print(f"✅ Deduplicated: {len(df)} → {len(df_unique)} incidents")
+    print(f"✅ Deduplicated: {before_count} → {len(df_unique)} incidents")
     return df_unique
 
 def classify_incidents(df, config):
@@ -43,19 +48,20 @@ def classify_incidents(df, config):
     if df.empty:
         return df
     
-    # Safe defaults
+    df = df.copy()
     df['incident_type'] = 'Other'
     df['region'] = 'Other'
     
-    # Build full text safely
-    content_cols = ['title', 'description', 'text', 'summary']
-    df['full_text'] = ' '
-    for col in content_cols:
-        if col in df.columns:
-            df['full_text'] += ' ' + df[col].astype(str)
-    df['full_text'] = df['full_text'].str.lower()
+    def get_full_text(row):
+        text = []
+        for col in ['title', 'description', 'text', 'summary']:
+            if col in row and pd.notna(row[col]):
+                text.append(str(row[col]))
+        return ' '.join(text).lower()
     
-    # Keywords from config (safe access)
+    df['full_text'] = df.apply(get_full_text, axis=1)
+    
+    # Safe keyword access
     keywords = config.get('keywords', {})
     terror_kws = keywords.get('terror', [])
     encounter_kws = keywords.get('encounter', [])
