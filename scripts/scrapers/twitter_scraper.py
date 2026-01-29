@@ -17,40 +17,41 @@ class TwitterScraper:
             return False
     
     def search_tweets(self, hours_back=6):
-        """Search recent terror-related tweets"""
-        if not self.client:
-            if not self.authenticate():
-                return []
+    """Search recent terror-related tweets"""
+    if not self.client:
+        if not self.authenticate():
+            return []
+    
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(hours=hours_back)
+    
+    query = 'terror OR terrorist OR encounter OR militant OR attack OR explosion OR IED OR ambush OR infiltration OR "ceasefire violation" OR gunfight (Jammu OR Kashmir OR Manipur OR Nagaland OR Assam OR Mizoram OR Tripura OR Meghalaya OR Arunachal) -is:retweet lang:en'
+    
+    tweets = []
+    try:
+        response = self.client.search_recent_tweets(
+            query=query,
+            max_results=100,
+            start_time=start_time,
+            end_time=end_time,
+            tweet_fields=['created_at', 'author_id', 'public_metrics']
+        )
         
-        end_time = datetime.utcnow()
-        start_time = end_time - timedelta(hours=hours_back)
-        
-        query = 'terror OR terrorist OR encounter OR militant OR attack OR explosion OR IED OR ambush OR infiltration OR "ceasefire violation" OR gunfight (Jammu OR Kashmir OR Manipur OR Nagaland OR Assam OR Mizoram OR Tripura OR Meghalaya OR Arunachal) -is:retweet lang:en'
-        
-        tweets = []
-        try:
-            response = self.client.search_recent_tweets(
-                query=query,
-                max_results=100,
-                start_time=start_time,
-                end_time=end_time,
-                tweet_fields=['created_at', 'author_id', 'public_metrics']
-            )
-            
-            if response.data:
-                for tweet in response.data:
-                    tweets.append({
-                        'text': tweet.text,
-                        'created': tweet.created_at.isoformat(),
-                        'author_id': str(tweet.author_id),
-                        'likes': tweet.public_metrics['like_count'],
-                        'retweets': tweet.public_metrics['retweet_count'],
-                        'region': self._classify_region(tweet.text)
-                    })
-        except Exception as e:
-            print(f"Twitter search error: {e}")
-        
-        return tweets
+        if response.data:
+            for tweet in response.data:
+                tweets.append({
+                    'title': tweet.text[:100] + '...' if len(tweet.text) > 100 else tweet.text,  # ✅ Add title
+                    'description': '',  # ✅ Add description field
+                    'text': tweet.text,  # Keep original text
+                    'url': f'https://twitter.com/i/status/{tweet.id}',
+                    'published': tweet.created_at.isoformat(),
+                    'source': 'Twitter',
+                    'region': self._classify_region(tweet.text)
+                })
+    except Exception as e:
+        print(f"Twitter search error: {e}")
+    
+    return tweets
     
     def _classify_region(self, text):
         """Classify tweet by region"""
