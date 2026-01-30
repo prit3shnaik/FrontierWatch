@@ -2,7 +2,7 @@ name: FrontierWatch - Daily Report
 
 on:
   schedule:
-    - cron: '0 2:30 * * *'  # 8AM IST = 2:30AM UTC  
+    - cron: '30 2 * * *'  # 8AM IST = 2:30AM UTC ✓
   workflow_dispatch:
 
 jobs:
